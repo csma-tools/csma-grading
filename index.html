@@ -588,6 +588,14 @@ function init(){
   // Connection badge
   checkConnection();
   setInterval(checkConnection, 180000); // every 3 minutes
+  // Allow tap-to-login when offline
+document.getElementById('connStatus').onclick = () => {
+  const el = document.getElementById('connStatus');
+  if (el && el.dataset.connected === '0') {
+    window.open(API_URL, '_blank'); // opens Google Apps Script URL for login
+  }
+};
+
 }
 
 document.addEventListener('DOMContentLoaded', init);
