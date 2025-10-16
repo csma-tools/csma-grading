@@ -25,7 +25,7 @@
   .badge.warn{border-color:#fde68a;background:#fffbeb;color:#854d0e}
   .badge.err{border-color:#fecaca;background:#fef2f2;color:#991b1b}
 
-  main{display:grid;grid-template-columns:260px 1fr;gap:16px;padding:16px}
+  main{display:grid;grid-template-columns:280px 1fr;gap:16px;padding:16px}
   @media (max-width:1000px){main{grid-template-columns:1fr}}
   .card{background:#fff;border:1px solid var(--line);border-radius:12px}
   .hd{padding:10px 12px;border-bottom:1px solid var(--line);font-weight:650}
@@ -41,7 +41,7 @@
   .tag{font-size:11px;color:var(--muted)}
 
   /* Students list */
-  .students{display:flex;flex-direction:column;height:calc(100vh - 220px)}
+  .students{display:flex;flex-direction:column;height:calc(100vh - 240px)}
   .students .list{overflow:auto;border:1px solid var(--line);border-radius:10px}
   .students .item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-top:1px solid var(--line);cursor:pointer}
   .students .item:first-child{border-top:none}
@@ -89,11 +89,11 @@
       <div class="logo">CS</div>
       <div>
         <h1>Crimson Sparrow — Testing Grading</h1>
-        <div class="sub">Grade 3 students side-by-side • 1–5 scale • Per-student Rank • Auto PASS / NO CHANGE • Multi-iPad consolidation • Print all</div>
+        <div class="sub">3-at-a-time • 1–5 scale • Per-student Rank & Class Category • Auto PASS / NO CHANGE • Multi-iPad • Print</div>
       </div>
     </div>
     <div class="badges">
-      <div id="connStatus" class="badge warn">Checking connection…</div>
+      <div id="connStatus" class="badge warn" title="Tap to sign in if needed">Checking connection…</div>
       <div id="saveStatus" class="badge">Waiting for changes…</div>
     </div>
   </div>
@@ -114,7 +114,7 @@
           <input type="text" id="instructor" placeholder="Instructor name">
         </div>
       </div>
-      <div class="sub" style="margin-top:4px">Tip: “Rank Testing For” is chosen per student in the grading panel.</div>
+      <div class="sub" style="margin-top:4px">Tip: “Rank Testing For” and “Class Category” are set per student in the grading panel.</div>
     </div>
 
     <div class="hd">Students</div>
@@ -153,7 +153,7 @@
       </div>
     </div>
 
-    <!-- PRINT MATRIX -->
+    <!-- PRINT MATRIX (local preview/backup) -->
     <div class="printable" id="printArea">
       <h2 style="margin:0 0 8px 0">TESTING GRADES</h2>
       <div style="display:flex;gap:16px;margin:6px 0 10px 0;font-size:12px;color:var(--muted)">
@@ -164,6 +164,7 @@
         <thead>
           <tr>
             <th>Student</th>
+            <th>Category</th>
             <th>Rank Testing For</th>
             <th class="center">Patterns</th>
             <th class="center">Self-Defense</th>
@@ -177,21 +178,24 @@
         </thead>
         <tbody></tbody>
       </table>
-      <div style="margin-top:8px;font-size:11px;color:var(--muted)">Color legend: Green = Pass (≥3). Yellow = Needs Improvement (&lt;3). Decision rule: Average &gt; 2.5 → PASS; otherwise NO CHANGE.</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">Legend: Green ≥ 3 (Pass), Yellow &lt; 3 (Needs improvement). Decision: Avg &gt; 2.5 → PASS; else NO CHANGE.</div>
     </div>
   </section>
 </main>
 
 <footer class="footbar no-print">
   <div class="wrap">
-    <div class="sub">Grading scale: 1 Poor • 2 Below Avg • 3 Avg • 4 Above Avg • 5 Excellent. Auto-saves locally and syncs to Google Sheet.</div>
+    <div class="sub">Grading: 1 Poor • 2 Below Avg • 3 Avg • 4 Above Avg • 5 Excellent. Auto-saves locally and syncs to Google Sheet.</div>
   </div>
 </footer>
 
 <script>
 /* ===== Constants & Options ===== */
-// Your Apps Script Web App URL:
-const API_URL = 'https://script.google.com/macros/s/AKfycbwhchkEEpnafAGKR6GngOdy7Cz7F7F5dGjF-785Wm_FJAyanE-5TAmacoLmt0GCycM/exec';
+// 1) Set your Apps Script Web App URL here:
+const API_URL = 'YOUR_APPS_SCRIPT_WEB_APP_URL/exec'; // <-- paste your /exec URL
+
+// 2) Categories for class grouping
+const CATEGORY_OPTIONS = ['Beginners','Intermediate','Teens','Adults'];
 
 const CLIENT_ID = localStorage.getItem('csma_client_id') || (()=>{ const id='ipad-'+Math.random().toString(36).slice(2,9); localStorage.setItem('csma_client_id',id); return id; })();
 
@@ -218,7 +222,7 @@ const COMMENT_PRESETS = [
 
 /* ===== State & Storage ===== */
 const state = { session: { date:'', instructor:'' }, students: [], trioIndex: 0 };
-const KEY='csma_grading_v3';
+const KEY='csma_grading_v4'; // bump key because we added "category"
 const $ = s=>document.querySelector(s);
 const $$ = s=>Array.from(document.querySelectorAll(s));
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); buildPrintLocal(); renderList(); }
@@ -251,7 +255,6 @@ function setSave(text, cls=''){
   el.className = 'badge ' + cls;
   el.textContent = text;
   if(saveTimer) clearTimeout(saveTimer);
-  // fade to subtle after 3s
   saveTimer = setTimeout(()=>{ el.className='badge'; el.textContent='Autosaved'; }, 3000);
 }
 
@@ -287,6 +290,7 @@ async function pushGrade(stu){
   const payload = {
     session_date: state.session.date,
     rank: stu.rank || '',
+    category: stu.category || '', // NEW
     instructor: state.session.instructor,
     student: stu.name,
     patterns: stu.scores?.patterns ?? '',
@@ -302,7 +306,7 @@ async function pushGrade(stu){
   try{
     await fetch(API_URL, {
       method:'POST',
-      mode:'no-cors',                            // make it a "simple" request (no preflight)
+      mode:'no-cors',
       credentials:'include',
       headers:{ 'Content-Type':'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
@@ -317,7 +321,7 @@ async function pushGrade(stu){
 /* ===== Connection check (JSONP) ===== */
 async function checkConnection(){
   try{
-    await jsonp(API_URL);        // if we can load JSONP, we’re “connected”
+    await jsonp(API_URL);
     setConn('ok','Connected to Google Sheet');
     return true;
   }catch(e){
@@ -336,7 +340,7 @@ function renderList(){
     row.innerHTML = `
       <div>
         <div>${s.name}</div>
-        <small>${s.rank || '—'} ${avg!==null?` • Avg ${avg} • ${dec}`:''}</small>
+        <small>${s.category || '—'} • ${s.rank || '—'} ${avg!==null?` • Avg ${avg} • ${dec}`:''}</small>
       </div>
       <div class="dot ${dec==='PASS'?'pass':'nochange'}"></div>
     `;
@@ -347,12 +351,17 @@ function renderList(){
 function nextTrio(){ if((state.trioIndex+1)*3 < state.students.length){ state.trioIndex++; save(); renderTrio(); } }
 function prevTrio(){ if(state.trioIndex>0){ state.trioIndex--; save(); renderTrio(); } }
 
-/* Rank select HTML */
-function rankSelectHTML(stuId, value){
-  const opts = ['<option value="">Select rank…</option>'].concat(RANKS.map(r=>`<option ${r===value?'selected':''}>${r}</option>`)).join('');
-  return `<select class="rankSel" data-id="${stuId}">${opts}</select>`;
+/* Select HTML builders */
+function selectHTML(id, value, options){
+  const opts = ['<option value="">Select…</option>'].concat(options.map(o=>`<option ${o===value?'selected':''}>${o}</option>`));
+  return `<select data-id="${id}" class="wideSel">${opts.join('')}</select>`;
 }
-/* Comment presets HTML */
+function rankSelectHTML(stuId, value){
+  return selectHTML(stuId, value, RANKS).replace('class="wideSel"','class="rankSel"');
+}
+function categorySelectHTML(stuId, value){
+  return selectHTML(stuId, value, CATEGORY_OPTIONS).replace('class="wideSel"','class="catSel"');
+}
 function chipsHTML(stuId){
   return `<div class="chipbar">` + COMMENT_PRESETS.map(t=>`<span class="chip" data-chip="${stuId}">${t}</span>`).join('') + `</div>`;
 }
@@ -374,6 +383,10 @@ function renderTrio(){
     pane.innerHTML = `
       <h3>${stu.name}</h3>
       <div class="row" style="margin:0 0 8px 0">
+        <div class="field" style="min-width:220px">
+          <label>Class Category</label>
+          ${categorySelectHTML(stu.id, stu.category||'')}
+        </div>
         <div class="field" style="min-width:220px">
           <label>Rank Testing For</label>
           ${rankSelectHTML(stu.id, stu.rank||'')}
@@ -413,7 +426,7 @@ function renderTrio(){
     mount.appendChild(pane);
   });
 
-  // Wire events: scores
+  // Scores
   $$('.scoreSel').forEach(el=>{
     el.oninput = ()=>{
       const id = el.dataset.id, cat = el.dataset.cat, val = el.value===''? '' : (el.value==='NA'?'NA':Number(el.value));
@@ -429,15 +442,21 @@ function renderTrio(){
     };
   });
 
-  // Wire events: rank per student
+  // Rank & Category
   $$('.rankSel').forEach(el=>{
     el.oninput = ()=>{
       const s = state.students.find(x=>x.id===el.dataset.id); if(!s) return;
       s.rank = el.value; save(); pushGrade(s);
     };
   });
+  $$('.catSel').forEach(el=>{
+    el.oninput = ()=>{
+      const s = state.students.find(x=>x.id===el.dataset.id); if(!s) return;
+      s.category = el.value; save(); pushGrade(s);
+    };
+  });
 
-  // Wire events: comments + chips
+  // Notes + chips
   $$('textarea[data-notes]').forEach(t=>{
     t.oninput = ()=>{ const s = state.students.find(x=>x.id===t.dataset.notes); if(!s) return; s.notes = t.value; save(); };
   });
@@ -456,15 +475,24 @@ function renderTrio(){
   });
 }
 
-/* ===== Print matrix ===== */
+/* ===== Print matrix (local preview) ===== */
 async function buildPrintConsolidated(){
   $('#pDate').textContent = state.session.date || '—';
   $('#pInstructor').textContent = state.session.instructor || '—';
   const tb = $('#mx tbody'); tb.innerHTML='';
 
   const rows = await loadConsolidated();
-  const filtered = rows.filter(r => (!state.session.date || String(r.session_date).startsWith(state.session.date)));
-  filtered.sort((a,b)=> String(a.student||'').localeCompare(String(b.student||'')));
+
+  const filtered = rows.filter(r =>
+    (!state.session.date || String(r.session_date).startsWith(state.session.date))
+  );
+
+  filtered.sort((a,b)=>{
+    const ac = String(a.category||'');
+    const bc = String(b.category||'');
+    if (ac === bc) return String(a.student||'').localeCompare(String(b.student||''));
+    return ac.localeCompare(bc);
+  });
 
   const td = (val)=>{
     const cls = (val==='NA') ? '' : (Number(val)>=3 ? 'mx-pass' : 'mx-warn');
@@ -476,6 +504,7 @@ async function buildPrintConsolidated(){
     tb.insertAdjacentHTML('beforeend', `
       <tr>
         <td>${r.student || ''}</td>
+        <td>${r.category || ''}</td>
         <td>${r.rank || ''}</td>
         ${td(r.patterns)}
         ${td(r.selfdef)}
@@ -490,13 +519,13 @@ async function buildPrintConsolidated(){
   });
 }
 
-/* Local (fallback) print if offline — shows current device data only */
+/* Local fallback print (device-only data) */
 function buildPrintLocal(){
   const tb = $('#mx tbody'); if(!tb) return;
   tb.innerHTML='';
   state.students
     .slice()
-    .sort((a,b)=> a.name.localeCompare(b.name))
+    .sort((a,b)=> (a.category||'').localeCompare(b.category||'') || a.name.localeCompare(b.name))
     .forEach(s=>{
       const avg = calcAvg(s); const dec = decisionFromAvg(avg);
       const td = (val)=>{
@@ -507,6 +536,7 @@ function buildPrintLocal(){
       tb.insertAdjacentHTML('beforeend', `
         <tr>
           <td>${s.name}</td>
+          <td>${s.category||''}</td>
           <td>${s.rank||''}</td>
           ${td(s.scores?.patterns)}
           ${td(s.scores?.selfdef)}
@@ -523,12 +553,12 @@ function buildPrintLocal(){
 
 /* ===== CSV export ===== */
 function exportCsv(){
-  const headers = ['Student','Rank','Patterns','Self-Defense','Sparring','Board','Effort','Avg','Decision','Notes','Date','Instructor'];
+  const headers = ['Student','Category','Rank','Patterns','Self-Defense','Sparring','Board','Effort','Avg','Decision','Notes','Date','Instructor'];
   const rows = state.students.map(s=>{
     const avg = calcAvg(s); const dec = decisionFromAvg(avg);
     const g = k => s.scores?.[k]==='NA' ? 'Unneeded' : (s.scores?.[k]??'');
     return [
-      s.name, s.rank||'',
+      s.name, s.category||'', s.rank||'',
       g('patterns'), g('selfdef'), g('sparring'), g('boards'), g('effort'),
       avg ?? '', dec, (s.notes||'').replace(/\n/g,' '),
       state.session.date||'', state.session.instructor||''
@@ -557,14 +587,14 @@ function init(){
   // Students
   $('#addStudentBtn').onclick = ()=>{
     const name = $('#newStudent').value.trim(); if(!name) return;
-    state.students.push({id:uid(), name, rank:'', notes:'', scores:{}});
+    state.students.push({id:uid(), name, category:'', rank:'', notes:'', scores:{}});
     $('#newStudent').value=''; save(); renderTrio(); renderList();
   };
   $('#bulkBtn').onclick = ()=>{
     const text = prompt('Paste names separated by commas or new lines:','Anna\nBen\nCarla');
     if(!text) return;
     text.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean)
-      .forEach(n=>state.students.push({id:uid(), name:n, rank:'', notes:'', scores:{}}));
+      .forEach(n=>state.students.push({id:uid(), name:n, category:'', rank:'', notes:'', scores:{}}));
     save(); renderTrio(); renderList();
   };
 
@@ -577,7 +607,7 @@ function init(){
   $('#exportCsvBtn').onclick = exportCsv;
   $('#wipeBtn').onclick = ()=>{ if(confirm('Delete saved grades on this device?')){ localStorage.removeItem(KEY); location.reload(); } };
   $('#demoBtn').onclick = ()=>{
-    ['Anna','Ben','Carla','Diego','Ella','Finn','Grace'].forEach(n=> state.students.push({id:uid(), name:n, rank:'', notes:'', scores:{}}));
+    ['Anna','Ben','Carla','Diego','Ella','Finn','Grace'].forEach(n=> state.students.push({id:uid(), name:n, category:'', rank:'', notes:'', scores:{}}));
     save(); renderTrio(); renderList();
   };
 
@@ -585,17 +615,14 @@ function init(){
   renderTrio();
   buildPrintLocal();
 
-  // Connection badge
+  // Connection badge + tap-to-login + recheck on return
   checkConnection();
-  setInterval(checkConnection, 180000); // every 3 minutes
-  // Allow tap-to-login when offline
-document.getElementById('connStatus').onclick = () => {
-  const el = document.getElementById('connStatus');
-  if (el && el.dataset.connected === '0') {
-    window.open(API_URL, '_blank'); // opens Google Apps Script URL for login
-  }
-};
-
+  setInterval(checkConnection, 180000);
+  document.getElementById('connStatus').onclick = () => {
+    const el = document.getElementById('connStatus');
+    if (el && el.dataset.connected === '0') window.open(API_URL, '_blank');
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkConnection(); });
 }
 
 document.addEventListener('DOMContentLoaded', init);
