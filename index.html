@@ -25,7 +25,7 @@
   .badge.warn{border-color:#fde68a;background:#fffbeb;color:#854d0e}
   .badge.err{border-color:#fecaca;background:#fef2f2;color:#991b1b}
 
-  main{display:grid;grid-template-columns:280px 1fr;gap:16px;padding:16px}
+  main{display:grid;grid-template-columns:260px 1fr;gap:16px;padding:16px}
   @media (max-width:1000px){main{grid-template-columns:1fr}}
   .card{background:#fff;border:1px solid var(--line);border-radius:12px}
   .hd{padding:10px 12px;border-bottom:1px solid var(--line);font-weight:650}
@@ -41,7 +41,7 @@
   .tag{font-size:11px;color:var(--muted)}
 
   /* Students list */
-  .students{display:flex;flex-direction:column;height:calc(100vh - 240px)}
+  .students{display:flex;flex-direction:column;height:calc(100vh - 220px)}
   .students .list{overflow:auto;border:1px solid var(--line);border-radius:10px}
   .students .item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-top:1px solid var(--line);cursor:pointer}
   .students .item:first-child{border-top:none}
@@ -89,11 +89,11 @@
       <div class="logo">CS</div>
       <div>
         <h1>Crimson Sparrow — Testing Grading</h1>
-        <div class="sub">3-at-a-time • 1–5 scale • Per-student Rank & Class Category • Auto PASS / NO CHANGE • Multi-iPad • Print</div>
+        <div class="sub">Grade 3 students side-by-side • 1–5 scale • Per-student Rank • Auto PASS / NO CHANGE • Multi-iPad consolidation • Print all</div>
       </div>
     </div>
     <div class="badges">
-      <div id="connStatus" class="badge warn" title="Tap to sign in if needed">Checking connection…</div>
+      <div id="connStatus" class="badge warn">Checking connection…</div>
       <div id="saveStatus" class="badge">Waiting for changes…</div>
     </div>
   </div>
@@ -113,8 +113,14 @@
           <label>Instructor</label>
           <input type="text" id="instructor" placeholder="Instructor name">
         </div>
+        <div class="field" style="min-width:200px">
+          <label>Class Category (session default)</label>
+          <select id="sessionCategory">
+            <option value="">Select…</option>
+          </select>
+        </div>
       </div>
-      <div class="sub" style="margin-top:4px">Tip: “Rank Testing For” and “Class Category” are set per student in the grading panel.</div>
+      <div class="sub" style="margin-top:4px">Tip: Each student can have their own category; new students inherit the session default.</div>
     </div>
 
     <div class="hd">Students</div>
@@ -153,12 +159,13 @@
       </div>
     </div>
 
-    <!-- PRINT MATRIX (local preview/backup) -->
+    <!-- PRINT MATRIX -->
     <div class="printable" id="printArea">
       <h2 style="margin:0 0 8px 0">TESTING GRADES</h2>
       <div style="display:flex;gap:16px;margin:6px 0 10px 0;font-size:12px;color:var(--muted)">
         <div>Date: <span id="pDate">—</span></div>
         <div>Instructor: <span id="pInstructor">—</span></div>
+        <div>Default Category: <span id="pCategory">—</span></div>
       </div>
       <table id="mx">
         <thead>
@@ -178,26 +185,25 @@
         </thead>
         <tbody></tbody>
       </table>
-      <div style="margin-top:8px;font-size:11px;color:var(--muted)">Legend: Green ≥ 3 (Pass), Yellow &lt; 3 (Needs improvement). Decision: Avg &gt; 2.5 → PASS; else NO CHANGE.</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">Green = Pass (≥3). Yellow = Needs Improvement (&lt;3). Decision rule: Average &gt; 2.5 → PASS; otherwise NO CHANGE.</div>
     </div>
   </section>
 </main>
 
 <footer class="footbar no-print">
   <div class="wrap">
-    <div class="sub">Grading: 1 Poor • 2 Below Avg • 3 Avg • 4 Above Avg • 5 Excellent. Auto-saves locally and syncs to Google Sheet.</div>
+    <div class="sub">Grading scale: 1 Poor • 2 Below Avg • 3 Avg • 4 Above Avg • 5 Excellent. Auto-saves locally and syncs to Google Sheet.</div>
   </div>
 </footer>
 
 <script>
 /* ===== Constants & Options ===== */
-// 1) Set your Apps Script Web App URL here:
-const API_URL = 'YOUR_APPS_SCRIPT_WEB_APP_URL/exec'; // <-- paste your /exec URL
-
-// 2) Categories for class grouping
-const CATEGORY_OPTIONS = ['Beginners','Intermediate','Teens','Adults'];
+/* Your Apps Script Web App URL: */
+const API_URL = 'https://script.google.com/macros/s/AKfycbwhchkEEpnafAGKR6GngOdy7Cz7F7F5dGjF-785Wm_FJAyanE-5TAmacoLmt0GCycM/exec';
 
 const CLIENT_ID = localStorage.getItem('csma_client_id') || (()=>{ const id='ipad-'+Math.random().toString(36).slice(2,9); localStorage.setItem('csma_client_id',id); return id; })();
+
+const CATEGORY_OPTIONS = ['Beginners','Intermediate','Teens','Adults'];
 
 const RANKS = [
   'White → Yellow','Yellow → Adv Yellow','Green','Adv Green','Blue','Adv Blue','Red','Adv Red',
@@ -221,8 +227,8 @@ const COMMENT_PRESETS = [
 ];
 
 /* ===== State & Storage ===== */
-const state = { session: { date:'', instructor:'' }, students: [], trioIndex: 0 };
-const KEY='csma_grading_v4'; // bump key because we added "category"
+const state = { session: { date:'', instructor:'', category:'' }, students: [], trioIndex: 0 };
+const KEY='csma_grading_v3';
 const $ = s=>document.querySelector(s);
 const $$ = s=>Array.from(document.querySelectorAll(s));
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); buildPrintLocal(); renderList(); }
@@ -230,6 +236,9 @@ function load(){ const raw = localStorage.getItem(KEY); if(raw){ try{ Object.ass
 
 /* ===== Helpers ===== */
 function uid(){ return Math.random().toString(36).slice(2,9); }
+function fillOptions(sel, arr, val){
+  sel.innerHTML = '<option value="">Select…</option>' + arr.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('');
+}
 function calcAvg(stu){
   const nums = CATS.map(c=>{
     const v = stu.scores?.[c.key];
@@ -290,7 +299,7 @@ async function pushGrade(stu){
   const payload = {
     session_date: state.session.date,
     rank: stu.rank || '',
-    category: stu.category || '', // NEW
+    category: stu.category || state.session.category || '',
     instructor: state.session.instructor,
     student: stu.name,
     patterns: stu.scores?.patterns ?? '',
@@ -330,6 +339,14 @@ async function checkConnection(){
   }
 }
 
+/* ===== UI bits for Category ===== */
+function categorySelectHTML(stuId, value){
+  const opts = ['<option value="">Select…</option>']
+    .concat(CATEGORY_OPTIONS.map(o=>`<option ${o===value?'selected':''}>${o}</option>`))
+    .join('');
+  return `<select class="catSel" data-id="${stuId}">${opts}</select>`;
+}
+
 /* ===== Students list & trio nav ===== */
 function renderList(){
   const box = $('#studentList'); box.innerHTML = '';
@@ -351,17 +368,12 @@ function renderList(){
 function nextTrio(){ if((state.trioIndex+1)*3 < state.students.length){ state.trioIndex++; save(); renderTrio(); } }
 function prevTrio(){ if(state.trioIndex>0){ state.trioIndex--; save(); renderTrio(); } }
 
-/* Select HTML builders */
-function selectHTML(id, value, options){
-  const opts = ['<option value="">Select…</option>'].concat(options.map(o=>`<option ${o===value?'selected':''}>${o}</option>`));
-  return `<select data-id="${id}" class="wideSel">${opts.join('')}</select>`;
-}
+/* Rank select HTML */
 function rankSelectHTML(stuId, value){
-  return selectHTML(stuId, value, RANKS).replace('class="wideSel"','class="rankSel"');
+  const opts = ['<option value="">Select rank…</option>'].concat(RANKS.map(r=>`<option ${r===value?'selected':''}>${r}</option>`)).join('');
+  return `<select class="rankSel" data-id="${stuId}">${opts}</select>`;
 }
-function categorySelectHTML(stuId, value){
-  return selectHTML(stuId, value, CATEGORY_OPTIONS).replace('class="wideSel"','class="catSel"');
-}
+/* Comment presets HTML */
 function chipsHTML(stuId){
   return `<div class="chipbar">` + COMMENT_PRESETS.map(t=>`<span class="chip" data-chip="${stuId}">${t}</span>`).join('') + `</div>`;
 }
@@ -385,7 +397,7 @@ function renderTrio(){
       <div class="row" style="margin:0 0 8px 0">
         <div class="field" style="min-width:220px">
           <label>Class Category</label>
-          ${categorySelectHTML(stu.id, stu.category||'')}
+          ${categorySelectHTML(stu.id, stu.category || state.session.category || '')}
         </div>
         <div class="field" style="min-width:220px">
           <label>Rank Testing For</label>
@@ -442,13 +454,15 @@ function renderTrio(){
     };
   });
 
-  // Rank & Category
+  // Rank
   $$('.rankSel').forEach(el=>{
     el.oninput = ()=>{
       const s = state.students.find(x=>x.id===el.dataset.id); if(!s) return;
       s.rank = el.value; save(); pushGrade(s);
     };
   });
+
+  // Category
   $$('.catSel').forEach(el=>{
     el.oninput = ()=>{
       const s = state.students.find(x=>x.id===el.dataset.id); if(!s) return;
@@ -475,24 +489,17 @@ function renderTrio(){
   });
 }
 
-/* ===== Print matrix (local preview) ===== */
+/* ===== Print matrix ===== */
 async function buildPrintConsolidated(){
   $('#pDate').textContent = state.session.date || '—';
   $('#pInstructor').textContent = state.session.instructor || '—';
+  $('#pCategory').textContent = state.session.category || '—';
   const tb = $('#mx tbody'); tb.innerHTML='';
 
   const rows = await loadConsolidated();
-
   const filtered = rows.filter(r =>
     (!state.session.date || String(r.session_date).startsWith(state.session.date))
-  );
-
-  filtered.sort((a,b)=>{
-    const ac = String(a.category||'');
-    const bc = String(b.category||'');
-    if (ac === bc) return String(a.student||'').localeCompare(String(b.student||''));
-    return ac.localeCompare(bc);
-  });
+  ).sort((a,b)=> String(a.student||'').localeCompare(String(b.student||'')));
 
   const td = (val)=>{
     const cls = (val==='NA') ? '' : (Number(val)>=3 ? 'mx-pass' : 'mx-warn');
@@ -519,13 +526,13 @@ async function buildPrintConsolidated(){
   });
 }
 
-/* Local fallback print (device-only data) */
+/* Local (fallback) print if offline — shows current device data only */
 function buildPrintLocal(){
   const tb = $('#mx tbody'); if(!tb) return;
   tb.innerHTML='';
   state.students
     .slice()
-    .sort((a,b)=> (a.category||'').localeCompare(b.category||'') || a.name.localeCompare(b.name))
+    .sort((a,b)=> a.name.localeCompare(b.name))
     .forEach(s=>{
       const avg = calcAvg(s); const dec = decisionFromAvg(avg);
       const td = (val)=>{
@@ -536,7 +543,7 @@ function buildPrintLocal(){
       tb.insertAdjacentHTML('beforeend', `
         <tr>
           <td>${s.name}</td>
-          <td>${s.category||''}</td>
+          <td>${s.category || state.session.category || ''}</td>
           <td>${s.rank||''}</td>
           ${td(s.scores?.patterns)}
           ${td(s.scores?.selfdef)}
@@ -558,7 +565,7 @@ function exportCsv(){
     const avg = calcAvg(s); const dec = decisionFromAvg(avg);
     const g = k => s.scores?.[k]==='NA' ? 'Unneeded' : (s.scores?.[k]??'');
     return [
-      s.name, s.category||'', s.rank||'',
+      s.name, (s.category || state.session.category || ''), s.rank||'',
       g('patterns'), g('selfdef'), g('sparring'), g('boards'), g('effort'),
       avg ?? '', dec, (s.notes||'').replace(/\n/g,' '),
       state.session.date||'', state.session.instructor||''
@@ -581,20 +588,27 @@ function init(){
   // Session fields
   $('#testDate').value = state.session.date||'';
   $('#instructor').value = state.session.instructor||'';
+  fillOptions($('#sessionCategory'), CATEGORY_OPTIONS, state.session.category||'');
   $('#testDate').oninput = e=>{ state.session.date=e.target.value; save(); };
   $('#instructor').oninput = e=>{ state.session.instructor=e.target.value; save(); };
+  $('#sessionCategory').oninput = e=>{
+    state.session.category = e.target.value;
+    save();
+    renderTrio();       // refresh defaults shown in panels
+    renderList();
+  };
 
   // Students
   $('#addStudentBtn').onclick = ()=>{
     const name = $('#newStudent').value.trim(); if(!name) return;
-    state.students.push({id:uid(), name, category:'', rank:'', notes:'', scores:{}});
+    state.students.push({id:uid(), name, category: state.session.category || '', rank:'', notes:'', scores:{}});
     $('#newStudent').value=''; save(); renderTrio(); renderList();
   };
   $('#bulkBtn').onclick = ()=>{
     const text = prompt('Paste names separated by commas or new lines:','Anna\nBen\nCarla');
     if(!text) return;
     text.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean)
-      .forEach(n=>state.students.push({id:uid(), name:n, category:'', rank:'', notes:'', scores:{}}));
+      .forEach(n=>state.students.push({id:uid(), name:n, category: state.session.category || '', rank:'', notes:'', scores:{}}));
     save(); renderTrio(); renderList();
   };
 
@@ -607,7 +621,7 @@ function init(){
   $('#exportCsvBtn').onclick = exportCsv;
   $('#wipeBtn').onclick = ()=>{ if(confirm('Delete saved grades on this device?')){ localStorage.removeItem(KEY); location.reload(); } };
   $('#demoBtn').onclick = ()=>{
-    ['Anna','Ben','Carla','Diego','Ella','Finn','Grace'].forEach(n=> state.students.push({id:uid(), name:n, category:'', rank:'', notes:'', scores:{}}));
+    ['Anna','Ben','Carla','Diego','Ella','Finn','Grace'].forEach(n=> state.students.push({id:uid(), name:n, category: state.session.category || '', rank:'', notes:'', scores:{}}));
     save(); renderTrio(); renderList();
   };
 
@@ -615,14 +629,13 @@ function init(){
   renderTrio();
   buildPrintLocal();
 
-  // Connection badge + tap-to-login + recheck on return
+  // Connection badge & login tap
   checkConnection();
   setInterval(checkConnection, 180000);
   document.getElementById('connStatus').onclick = () => {
     const el = document.getElementById('connStatus');
-    if (el && el.dataset.connected === '0') window.open(API_URL, '_blank');
+    if (el && el.dataset.connected === '0') { window.open(API_URL, '_blank'); }
   };
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkConnection(); });
 }
 
 document.addEventListener('DOMContentLoaded', init);
