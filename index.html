@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CSMA — Testing Grading (Multi-iPad, Print-Ready)</title>
+<style>
+  :root{
+    --crimson:#B40000; --ink:#111827; --muted:#6b7280; --line:#e5e7eb;
+    --ok:#16a34a; --warn:#f59e0b; --bg:#ffffff;
+    --passCell:#e6f7ea; --warnCell:#fff7df;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial}
+  header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);z-index:10}
+  .wrap{max-width:1200px;margin:0 auto;padding:14px 16px}
+  .brand{display:flex;gap:10px;align-items:center}
+  .logo{width:36px;height:36px;border:2px solid var(--crimson);border-radius:10px;display:grid;place-items:center;font-weight:800;color:var(--crimson)}
+  h1{font-size:18px;margin:0}
+  .sub{font-size:12px;color:var(--muted)}
+  main{display:grid;grid-template-columns:260px 1fr;gap:16px;padding:16px}
+  @media (max-width:1000px){main{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px}
+  .hd{padding:10px 12px;border-bottom:1px solid var(--line);font-weight:650}
+  .bd{padding:12px}
+  .row{display:flex;flex-wrap:wrap;gap:10px}
+  .field{display:flex;flex-direction:column;gap:6px;min-width:160px}
+  .field label{font-size:12px;color:var(--muted)}
+  input[type="text"],input[type="date"],select,textarea{border:1px solid var(--line);border-radius:8px;padding:8px 10px;outline:none;background:#fff}
+  textarea{min-height:64px;resize:vertical}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer}
+  .btn:hover{background:#f9fafb}
+  .btn.primary{background:var(--crimson);border-color:var(--crimson);color:#fff}
+  .btn.ghost{border-color:transparent}
+  .tag{font-size:11px;color:var(--muted)}
+
+  /* Students list */
+  .students{display:flex;flex-direction:column;height:calc(100vh - 220px)}
+  .students .list{overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .students .item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-top:1px solid var(--line);cursor:pointer}
+  .students .item:first-child{border-top:none}
+  .item small{color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:999px;background:#d1d5db}
+  .dot.pass{background:var(--ok)}
+  .dot.nochange{background:var(--warn)}
+
+  /* Trio panel */
+  .trio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  @media (max-width:1100px){.trio{grid-template-columns:1fr}}
+  .pane{border:1px solid var(--line);border-radius:10px;padding:10px}
+  .pane h3{margin:0 0 8px 0;font-size:14px}
+  .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:8px;align-items:center}
+  .grid > div{padding:6px 0;border-bottom:1px dashed var(--line)}
+  .grid .th{font-weight:600;border-bottom:2px solid var(--line)}
+  .scoreSel{width:100%}
+  .cell-pass{background:var(--passCell)}
+  .cell-warn{background:var(--warnCell)}
+  .pill{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:#fff}
+  .pill.ok{border-color:#bbf7d0;background:#ecfdf5;color:#065f46}
+  .pill.warn{border-color:#fde68a;background:#fffbeb;color:#854d0e}
+  .chipbar{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0 0}
+  .chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:4px 8px;background:#fafafa;cursor:pointer}
+  .chip:hover{background:#f3f4f6}
+
+  /* Print matrix */
+  @media print{ header,.no-print,.footbar{display:none !important} .printable{display:block !important} body{background:#fff} }
+  .printable{display:none}
+  table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid var(--line);padding:6px 8px;font-size:12px}
+  th{background:#7f1d1d;color:#fff}
+  .mx-pass{background:var(--passCell)}
+  .mx-warn{background:var(--warnCell)}
+  .center{text-align:center}
+
+  .footbar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line)}
+  .footbar .wrap{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 16px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap brand">
+    <div class="logo">CS</div>
+    <div>
+      <h1>Crimson Sparrow — Testing Grading</h1>
+      <div class="sub">Grade 3 students side-by-side • 1–5 scale • Per-student Rank • Auto PASS / NO CHANGE • Multi-iPad consolidation • Print all</div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- LEFT: Session + Students -->
+  <section class="card">
+    <div class="hd">Session</div>
+    <div class="bd">
+      <div class="row">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="testDate">
+        </div>
+        <div class="field">
+          <label>Instructor</label>
+          <input type="text" id="instructor" placeholder="Instructor name">
+        </div>
+      </div>
+      <div class="tag" style="margin-top:4px">Tip: “Rank Testing For” is chosen per student in the grading panel.</div>
+    </div>
+
+    <div class="hd">Students</div>
+    <div class="bd students">
+      <div class="row" style="margin-bottom:8px">
+        <div class="field" style="flex:1">
+          <label>Add student</label>
+          <input id="newStudent" type="text" placeholder="e.g., Anna Jones" />
+        </div>
+        <button class="btn" id="addStudentBtn">Add</button>
+        <button class="btn" id="bulkBtn" title="Paste names">Bulk</button>
+      </div>
+      <div class="list" id="studentList"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="prevTrioBtn">← Prev Trio</button>
+        <button class="btn primary" id="nextTrioBtn">Next Trio →</button>
+      </div>
+      <div class="tag" style="margin-top:6px">Order the list how you’ll test; the panel advances 3 at a time.</div>
+    </div>
+  </section>
+
+  <!-- RIGHT: Trio grading -->
+  <section style="display:flex;flex-direction:column;gap:16px">
+    <div class="card">
+      <div class="hd">Grade 3 Students</div>
+      <div class="bd trio" id="trioArea"><!-- panes injected --></div>
+    </div>
+
+    <div class="card no-print">
+      <div class="hd">Data & Output</div>
+      <div class="bd row">
+        <button class="btn" id="exportCsvBtn">Export CSV</button>
+        <button class="btn" id="printBtn">Print All Grades</button>
+        <button class="btn" id="wipeBtn">Wipe Saved Data</button>
+        <button class="btn" id="demoBtn">Quick Add Demo</button>
+      </div>
+    </div>
+
+    <!-- PRINT MATRIX -->
+    <div class="printable" id="printArea">
+      <h2 style="margin:0 0 8px 0">TESTING GRADES</h2>
+      <div style="display:flex;gap:16px;margin:6px 0 10px 0;font-size:12px;color:var(--muted)">
+        <div>Date: <span id="pDate">—</span></div>
+        <div>Instructor: <span id="pInstructor">—</span></div>
+      </div>
+      <table id="mx">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Rank Testing For</th>
+            <th class="center">Patterns</th>
+            <th class="center">Self-Defense</th>
+            <th class="center">Sparring</th>
+            <th class="center">Board</th>
+            <th class="center">Attitude/Effort</th>
+            <th class="center">Avg</th>
+            <th class="center">Decision</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">Color legend: Green = Pass (≥3). Yellow = Needs Improvement (&lt;3). Decision rule: Average &gt; 2.5 → PASS; otherwise NO CHANGE.</div>
+    </div>
+  </section>
+</main>
+
+<footer class="footbar no-print">
+  <div class="wrap">
+    <div class="sub">Grading scale: 1 Poor • 2 Below Avg • 3 Avg • 4 Above Avg • 5 Excellent. Auto-saves locally and syncs to Google Sheet.</div>
+  </div>
+</footer>
+
+<script>
+/* ===== Constants & Options ===== */
+const API_URL = 'https://script.google.com/macros/s/AKfycbwQNfKif-ZDebR2zrkYs-hTAfTR5Bzyq4jS6sgq2q_HEyjVLOG_mIg78biTSMos864t/exec';
+const CLIENT_ID = localStorage.getItem('csma_client_id') || (()=>{ const id='ipad-'+Math.random().toString(36).slice(2,9); localStorage.setItem('csma_client_id',id); return id; })();
+
+const RANKS = [
+  'White → Yellow','Yellow → Adv Yellow','Green','Adv Green','Blue','Adv Blue','Red','Adv Red',
+  'Brown Lvl 1','Brown Lvl 2','Brown Lvl 3','Black Lvl 1','Black Lvl 2','Black Lvl 3',
+  '1st Degree','2nd Degree','3rd Degree','4th Degree'
+];
+
+const CATS = [
+  { key:'patterns', label:'Patterns' },
+  { key:'selfdef', label:'Self-Defense' },
+  { key:'sparring', label:'Sparring' },
+  { key:'boards', label:'Board Breaking', allowUnneeded:true },
+  { key:'effort', label:'Attitude / Effort' },
+];
+
+const COMMENT_PRESETS = [
+  'Needs stronger power in pattern',
+  'Stances need work / deeper',
+  'Improve chamber and retraction',
+  'Hands too low — guard up',
+  'Work on balance and control',
+  'More snap on kicks',
+  'Footwork and ring movement',
+  'Control contact in sparring',
+  'Add kihap / stronger spirit',
+  'Board break: re-aim or step',
+  'Flow and realism in self-defense',
+  'Breathing and rhythm'
+];
+
+/* ===== State & Storage ===== */
+const state = {
+  session: { date:'', instructor:'' },
+  students: [], // {id,name,rank:'',notes:'', scores:{cat:1..5|'NA'}, avg:null, decision:''}
+  trioIndex: 0
+};
+const KEY='csma_grading_v3';
+
+const $ = s=>document.querySelector(s);
+const $$ = s=>Array.from(document.querySelectorAll(s));
+
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); buildPrintLocal(); renderList(); }
+function load(){ const raw = localStorage.getItem(KEY); if(raw){ try{ Object.assign(state, JSON.parse(raw)); }catch{} } }
+
+/* ===== Helpers ===== */
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function calcAvg(stu){
+  const nums = CATS.map(c=>{
+    const v = stu.scores?.[c.key];
+    return (v===undefined || v===null || v==='NA') ? null : Number(v);
+  }).filter(v=>v!==null && !isNaN(v));
+  if(!nums.length) return null;
+  const avg = nums.reduce((a,b)=>a+b,0)/nums.length;
+  return Math.round(avg*10)/10;
+}
+function decisionFromAvg(avg){ return avg===null ? '' : (avg>2.5 ? 'PASS' : 'NO CHANGE'); }
+function cellClassFromScore(v){ if(v==='NA' || v==='' || v==null) return ''; return Number(v)>=3 ? 'cell-pass' : 'cell-warn'; }
+
+/* ===== API (Google Apps Script) ===== */
+async function pushGrade(stu){
+  const avg = calcAvg(stu);
+  const decision = decisionFromAvg(avg);
+  const payload = {
+    session_date: state.session.date,
+    rank: stu.rank || '', // per-student
+    instructor: state.session.instructor,
+    student: stu.name,
+    patterns: stu.scores?.patterns ?? '',
+    selfdef:  stu.scores?.selfdef ?? '',
+    sparring: stu.scores?.sparring ?? '',
+    boards:   stu.scores?.boards ?? '',  // "NA" allowed
+    effort:   stu.scores?.effort ?? '',
+    avg, decision,
+    notes: stu.notes || '',
+    client_id: CLIENT_ID
+  };
+  try{
+    await fetch(API_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'include',              // send Google login cookies
+      body: JSON.stringify(payload)
+    });
+  }catch(e){ console.warn('Sync failed (kept locally):', e); }
+}
+
+async function loadConsolidated(){
+  try{
+    const res = await fetch(API_URL, { method:'GET', credentials:'include' });
+    const json = await res.json();
+    return json.rows || [];
+  }catch(e){ console.warn('Load consolidated failed:', e); return []; }
+}
+
+/* ===== Students list & trio nav ===== */
+function renderList(){
+  const box = $('#studentList'); box.innerHTML = '';
+  state.students.forEach((s,idx)=>{
+    const avg = calcAvg(s); const dec = decisionFromAvg(avg);
+    const row = document.createElement('div');
+    row.className='item';
+    row.innerHTML = `
+      <div>
+        <div>${s.name}</div>
+        <small>${s.rank || '—'} ${avg!==null?` • Avg ${avg} • ${dec}`:''}</small>
+      </div>
+      <div class="dot ${dec==='PASS'?'pass':'nochange'}"></div>
+    `;
+    row.onclick = ()=>{ state.trioIndex = Math.floor(idx/3); save(); renderTrio(); };
+    box.appendChild(row);
+  });
+}
+
+function nextTrio(){ if((state.trioIndex+1)*3 < state.students.length){ state.trioIndex++; save(); renderTrio(); } }
+function prevTrio(){ if(state.trioIndex>0){ state.trioIndex--; save(); renderTrio(); } }
+
+/* ===== Rank select HTML ===== */
+function rankSelectHTML(stuId, value){
+  const opts = ['<option value="">Select rank…</option>'].concat(RANKS.map(r=>`<option ${r===value?'selected':''}>${r}</option>`)).join('');
+  return `<select class="rankSel" data-id="${stuId}">${opts}</select>`;
+}
+
+/* ===== Comment presets HTML ===== */
+function chipsHTML(stuId){
+  return `<div class="chipbar">` + COMMENT_PRESETS.map(t=>`<span class="chip" data-chip="${stuId}">${t}</span>`).join('') + `</div>`;
+}
+
+/* ===== Trio grading panel ===== */
+function renderTrio(){
+  const mount = $('#trioArea'); mount.innerHTML = '';
+  const start = state.trioIndex*3;
+  const slice = state.students.slice(start,start+3);
+  while(slice.length<3) slice.push(null);
+
+  slice.forEach((stu,i)=>{
+    const pane = document.createElement('div'); pane.className='pane';
+    if(!stu){
+      pane.innerHTML = `<h3>Empty</h3><div class="tag">Add more students or go to Prev/Next Trio.</div>`;
+      mount.appendChild(pane); return;
+    }
+    const avg = calcAvg(stu); const dec = decisionFromAvg(avg);
+    pane.innerHTML = `
+      <h3>${stu.name}</h3>
+      <div class="row" style="margin:0 0 8px 0">
+        <div class="field" style="min-width:220px">
+          <label>Rank Testing For</label>
+          ${rankSelectHTML(stu.id, stu.rank||'')}
+        </div>
+        <div id="badge-${stu.id}" class="pill ${dec==='PASS'?'ok':'warn'}" style="align-self:flex-end">
+          ${avg!==null?`Avg ${avg} • ${dec}`:'No scores yet'}
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="th">Category</div><div class="th">Score (1–5)</div>
+        ${CATS.map(cat=>{
+          const v = (stu.scores?.[cat.key]??'');
+          const passClass = cellClassFromScore(v);
+          const options = cat.allowUnneeded
+            ? `<option value="">—</option><option value="NA" ${v==='NA'?'selected':''}>Unneeded</option>`
+            : `<option value="">—</option>`;
+          const sel = `
+            <select class="scoreSel ${passClass}" data-id="${stu.id}" data-cat="${cat.key}">
+              ${options}
+              <option value="1" ${v==1?'selected':''}>1 (Poor)</option>
+              <option value="2" ${v==2?'selected':''}>2 (Below Avg)</option>
+              <option value="3" ${v==3?'selected':''}>3 (Avg)</option>
+              <option value="4" ${v==4?'selected':''}>4 (Above Avg)</option>
+              <option value="5" ${v==5?'selected':''}>5 (Excellent)</option>
+            </select>`;
+          return `<div>${cat.label}</div><div>${sel}</div>`;
+        }).join('')}
+      </div>
+
+      <div class="field" style="margin-top:8px">
+        <label>Comments</label>
+        <textarea data-notes="${stu.id}" placeholder="Optional notes…">${stu.notes||''}</textarea>
+        ${chipsHTML(stu.id)}
+      </div>
+    `;
+    mount.appendChild(pane);
+  });
+
+  // Wire events: scores
+  $$('.scoreSel').forEach(el=>{
+    el.oninput = ()=>{
+      const id = el.dataset.id, cat = el.dataset.cat, val = el.value===''? '' : (el.value==='NA'?'NA':Number(el.value));
+      const s = state.students.find(x=>x.id===id); if(!s) return;
+      s.scores = s.scores || {};
+      s.scores[cat] = val;
+      el.classList.remove('cell-pass','cell-warn');
+      const cls = cellClassFromScore(val); if(cls) el.classList.add(cls);
+      const avg = calcAvg(s); const dec = decisionFromAvg(avg);
+      const badge = document.getElementById(`badge-${id}`);
+      if(badge){ badge.textContent = avg!==null?`Avg ${avg} • ${dec}`:'No scores yet';
+        badge.className = 'pill ' + (dec==='PASS'?'ok':'warn');
+      }
+      save(); pushGrade(s);
+    };
+  });
+
+  // Wire events: rank per student
+  $$('.rankSel').forEach(el=>{
+    el.oninput = ()=>{
+      const s = state.students.find(x=>x.id===el.dataset.id); if(!s) return;
+      s.rank = el.value; save(); pushGrade(s);
+    };
+  });
+
+  // Wire events: comments + chips
+  $$('textarea[data-notes]').forEach(t=>{
+    t.oninput = ()=>{ const s = state.students.find(x=>x.id===t.dataset.notes); if(!s) return; s.notes = t.value; save(); };
+  });
+  $$('.chip').forEach(c=>{
+    c.onclick = ()=>{
+      const id = c.getAttribute('data-chip');
+      const s = state.students.find(x=>x.id===id); if(!s) return;
+      const area = document.querySelector(`textarea[data-notes="${id}"]`);
+      const insert = c.textContent;
+      if(area){
+        const existing = area.value.trim();
+        area.value = existing ? (existing + (existing.endsWith('.')?' ':' — ') + insert) : insert;
+        area.dispatchEvent(new Event('input'));
+      }
+    };
+  });
+}
+
+/* ===== Print matrix ===== */
+async function buildPrintConsolidated(){
+  $('#pDate').textContent = state.session.date || '—';
+  $('#pInstructor').textContent = state.session.instructor || '—';
+  const tb = $('#mx tbody'); tb.innerHTML='';
+
+  const rows = await loadConsolidated();
+
+  // Optional: filter by session date (startsWith allows time stamps in sheet)
+  const filtered = rows.filter(r =>
+    (!state.session.date || String(r.session_date).startsWith(state.session.date))
+  );
+
+  filtered.sort((a,b)=> String(a.student||'').localeCompare(String(b.student||'')));
+
+  const td = (val)=>{
+    const cls = (val==='NA') ? '' : (Number(val)>=3 ? 'mx-pass' : 'mx-warn');
+    const txt = (val==='NA') ? 'Unneeded' : (val ?? '');
+    return `<td class="center ${cls}">${txt}</td>`;
+  };
+
+  filtered.forEach(r=>{
+    tb.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${r.student || ''}</td>
+        <td>${r.rank || ''}</td>
+        ${td(r.patterns)}
+        ${td(r.selfdef)}
+        ${td(r.sparring)}
+        ${td(r.boards)}
+        ${td(r.effort)}
+        <td class="center"><b>${r.avg ?? ''}</b></td>
+        <td class="center"><b>${r.decision || ''}</b></td>
+        <td>${r.notes || ''}</td>
+      </tr>
+    `);
+  });
+}
+
+/* Local (fallback) print if offline — shows current device data only */
+function buildPrintLocal(){
+  const tb = $('#mx tbody'); if(!tb) return;
+  tb.innerHTML='';
+  state.students
+    .slice()
+    .sort((a,b)=> a.name.localeCompare(b.name))
+    .forEach(s=>{
+      const avg = calcAvg(s); const dec = decisionFromAvg(avg);
+      const td = (val)=>{
+        const cls = (val==='NA') ? '' : (Number(val)>=3 ? 'mx-pass' : 'mx-warn');
+        const txt = (val==='NA') ? 'Unneeded' : (val ?? '');
+        return `<td class="center ${cls}">${txt}</td>`;
+      };
+      tb.insertAdjacentHTML('beforeend', `
+        <tr>
+          <td>${s.name}</td>
+          <td>${s.rank||''}</td>
+          ${td(s.scores?.patterns)}
+          ${td(s.scores?.selfdef)}
+          ${td(s.scores?.sparring)}
+          ${td(s.scores?.boards)}
+          ${td(s.scores?.effort)}
+          <td class="center"><b>${avg ?? ''}</b></td>
+          <td class="center"><b>${dec}</b></td>
+          <td>${s.notes||''}</td>
+        </tr>
+      `);
+    });
+}
+
+/* ===== CSV export ===== */
+function exportCsv(){
+  const headers = ['Student','Rank','Patterns','Self-Defense','Sparring','Board','Effort','Avg','Decision','Notes','Date','Instructor'];
+  const rows = state.students.map(s=>{
+    const avg = calcAvg(s); const dec = decisionFromAvg(avg);
+    const g = k => s.scores?.[k]==='NA' ? 'Unneeded' : (s.scores?.[k]??'');
+    return [
+      s.name, s.rank||'',
+      g('patterns'), g('selfdef'), g('sparring'), g('boards'), g('effort'),
+      avg ?? '', dec, (s.notes||'').replace(/\n/g,' '),
+      state.session.date||'', state.session.instructor||''
+    ];
+  });
+  const csv = [headers, ...rows].map(r=>r.map(v=>{
+    const s = (v===null||v===undefined) ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  }).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='csma-grades.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ===== Init ===== */
+function init(){
+  load();
+
+  // Session fields
+  $('#testDate').value = state.session.date||'';
+  $('#instructor').value = state.session.instructor||'';
+  $('#testDate').oninput = e=>{ state.session.date=e.target.value; save(); };
+  $('#instructor').oninput = e=>{ state.session.instructor=e.target.value; save(); };
+
+  // Students
+  $('#addStudentBtn').onclick = ()=>{
+    const name = $('#newStudent').value.trim(); if(!name) return;
+    state.students.push({id:uid(), name, rank:'', notes:'', scores:{}});
+    $('#newStudent').value=''; save(); renderTrio(); renderList();
+  };
+  $('#bulkBtn').onclick = ()=>{
+    const text = prompt('Paste names separated by commas or new lines:','Anna\nBen\nCarla');
+    if(!text) return;
+    text.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean)
+      .forEach(n=>state.students.push({id:uid(), name:n, rank:'', notes:'', scores:{}}));
+    save(); renderTrio(); renderList();
+  };
+
+  // Trio nav
+  $('#nextTrioBtn').onclick = nextTrio;
+  $('#prevTrioBtn').onclick = prevTrio;
+
+  // Output buttons
+  $('#printBtn').onclick = async ()=>{ await buildPrintConsolidated(); window.print(); };
+  $('#exportCsvBtn').onclick = exportCsv;
+  $('#wipeBtn').onclick = ()=>{ if(confirm('Delete saved grades on this device?')){ localStorage.removeItem(KEY); location.reload(); } };
+  $('#demoBtn').onclick = ()=>{
+    ['Anna','Ben','Carla','Diego','Ella','Finn','Grace'].forEach(n=> state.students.push({id:uid(), name:n, rank:'', notes:'', scores:{}}));
+    save(); renderTrio(); renderList();
+  };
+
+  renderList();
+  renderTrio();
+  buildPrintLocal();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
