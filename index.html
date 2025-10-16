@@ -14,10 +14,17 @@
   body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial}
   header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);z-index:10}
   .wrap{max-width:1200px;margin:0 auto;padding:14px 16px}
-  .brand{display:flex;gap:10px;align-items:center}
+  .brand{display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .brandL{display:flex;gap:10px;align-items:center}
   .logo{width:36px;height:36px;border:2px solid var(--crimson);border-radius:10px;display:grid;place-items:center;font-weight:800;color:var(--crimson)}
   h1{font-size:18px;margin:0}
   .sub{font-size:12px;color:var(--muted)}
+  .badges{display:flex;gap:8px;align-items:center}
+  .badge{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#fafafa}
+  .badge.ok{border-color:#bbf7d0;background:#ecfdf5;color:#065f46}
+  .badge.warn{border-color:#fde68a;background:#fffbeb;color:#854d0e}
+  .badge.err{border-color:#fecaca;background:#fef2f2;color:#991b1b}
+
   main{display:grid;grid-template-columns:260px 1fr;gap:16px;padding:16px}
   @media (max-width:1000px){main{grid-template-columns:1fr}}
   .card{background:#fff;border:1px solid var(--line);border-radius:12px}
@@ -31,7 +38,6 @@
   .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer}
   .btn:hover{background:#f9fafb}
   .btn.primary{background:var(--crimson);border-color:var(--crimson);color:#fff}
-  .btn.ghost{border-color:transparent}
   .tag{font-size:11px;color:var(--muted)}
 
   /* Students list */
@@ -79,10 +85,16 @@
 <body>
 <header>
   <div class="wrap brand">
-    <div class="logo">CS</div>
-    <div>
-      <h1>Crimson Sparrow — Testing Grading</h1>
-      <div class="sub">Grade 3 students side-by-side • 1–5 scale • Per-student Rank • Auto PASS / NO CHANGE • Multi-iPad consolidation • Print all</div>
+    <div class="brandL">
+      <div class="logo">CS</div>
+      <div>
+        <h1>Crimson Sparrow — Testing Grading</h1>
+        <div class="sub">Grade 3 students side-by-side • 1–5 scale • Per-student Rank • Auto PASS / NO CHANGE • Multi-iPad consolidation • Print all</div>
+      </div>
+    </div>
+    <div class="badges">
+      <div id="connStatus" class="badge warn">Checking connection…</div>
+      <div id="saveStatus" class="badge">Waiting for changes…</div>
     </div>
   </div>
 </header>
@@ -102,7 +114,7 @@
           <input type="text" id="instructor" placeholder="Instructor name">
         </div>
       </div>
-      <div class="tag" style="margin-top:4px">Tip: “Rank Testing For” is chosen per student in the grading panel.</div>
+      <div class="sub" style="margin-top:4px">Tip: “Rank Testing For” is chosen per student in the grading panel.</div>
     </div>
 
     <div class="hd">Students</div>
@@ -178,7 +190,9 @@
 
 <script>
 /* ===== Constants & Options ===== */
+// Your Apps Script Web App URL:
 const API_URL = 'https://script.google.com/macros/s/AKfycbwQNfKif-ZDebR2zrkYs-hTAfTR5Bzyq4jS6sgq2q_HEyjVLOG_mIg78biTSMos864t/exec';
+
 const CLIENT_ID = localStorage.getItem('csma_client_id') || (()=>{ const id='ipad-'+Math.random().toString(36).slice(2,9); localStorage.setItem('csma_client_id',id); return id; })();
 
 const RANKS = [
@@ -196,31 +210,17 @@ const CATS = [
 ];
 
 const COMMENT_PRESETS = [
-  'Needs stronger power in pattern',
-  'Stances need work / deeper',
-  'Improve chamber and retraction',
-  'Hands too low — guard up',
-  'Work on balance and control',
-  'More snap on kicks',
-  'Footwork and ring movement',
-  'Control contact in sparring',
-  'Add kihap / stronger spirit',
-  'Board break: re-aim or step',
-  'Flow and realism in self-defense',
-  'Breathing and rhythm'
+  'Needs stronger power in pattern','Stances need work / deeper','Improve chamber and retraction',
+  'Hands too low — guard up','Work on balance and control','More snap on kicks',
+  'Footwork and ring movement','Control contact in sparring','Add kihap / stronger spirit',
+  'Board break: re-aim or step','Flow and realism in self-defense','Breathing and rhythm'
 ];
 
 /* ===== State & Storage ===== */
-const state = {
-  session: { date:'', instructor:'' },
-  students: [], // {id,name,rank:'',notes:'', scores:{cat:1..5|'NA'}, avg:null, decision:''}
-  trioIndex: 0
-};
+const state = { session: { date:'', instructor:'' }, students: [], trioIndex: 0 };
 const KEY='csma_grading_v3';
-
 const $ = s=>document.querySelector(s);
 const $$ = s=>Array.from(document.querySelectorAll(s));
-
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); buildPrintLocal(); renderList(); }
 function load(){ const raw = localStorage.getItem(KEY); if(raw){ try{ Object.assign(state, JSON.parse(raw)); }catch{} } }
 
@@ -238,40 +238,92 @@ function calcAvg(stu){
 function decisionFromAvg(avg){ return avg===null ? '' : (avg>2.5 ? 'PASS' : 'NO CHANGE'); }
 function cellClassFromScore(v){ if(v==='NA' || v==='' || v==null) return ''; return Number(v)>=3 ? 'cell-pass' : 'cell-warn'; }
 
-/* ===== API (Google Apps Script) ===== */
+/* ===== Badges ===== */
+function setConn(status, text){
+  const el = $('#connStatus'); if(!el) return;
+  el.className = 'badge ' + (status==='ok'?'ok':status==='warn'?'warn':status==='err'?'err':'');
+  el.textContent = text;
+  el.dataset.connected = (status==='ok') ? '1' : '0';
+}
+let saveTimer=null;
+function setSave(text, cls=''){
+  const el = $('#saveStatus'); if(!el) return;
+  el.className = 'badge ' + cls;
+  el.textContent = text;
+  if(saveTimer) clearTimeout(saveTimer);
+  // fade to subtle after 3s
+  saveTimer = setTimeout(()=>{ el.className='badge'; el.textContent='Autosaved'; }, 3000);
+}
+
+/* ===== JSONP loader for GET (avoids CORS) ===== */
+function jsonp(url){
+  return new Promise((resolve, reject) => {
+    const cb = 'cb_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    window[cb] = (data) => {
+      try { resolve(data); }
+      finally { delete window[cb]; script.remove(); }
+    };
+    script.onerror = () => { delete window[cb]; reject(new Error('JSONP load failed')); };
+    script.src = `${url}?callback=${cb}`;
+    document.body.appendChild(script);
+  });
+}
+
+async function loadConsolidated(){
+  try{
+    const data = await jsonp(API_URL);
+    return data && data.rows ? data.rows : [];
+  }catch(e){
+    console.warn('Load consolidated failed:', e);
+    return [];
+  }
+}
+
+/* ===== POST (no preflight) ===== */
 async function pushGrade(stu){
   const avg = calcAvg(stu);
   const decision = decisionFromAvg(avg);
   const payload = {
     session_date: state.session.date,
-    rank: stu.rank || '', // per-student
+    rank: stu.rank || '',
     instructor: state.session.instructor,
     student: stu.name,
     patterns: stu.scores?.patterns ?? '',
     selfdef:  stu.scores?.selfdef ?? '',
     sparring: stu.scores?.sparring ?? '',
-    boards:   stu.scores?.boards ?? '',  // "NA" allowed
+    boards:   stu.scores?.boards ?? '',
     effort:   stu.scores?.effort ?? '',
     avg, decision,
     notes: stu.notes || '',
     client_id: CLIENT_ID
   };
+
   try{
     await fetch(API_URL, {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      credentials:'include',              // send Google login cookies
+      mode:'no-cors',                            // make it a "simple" request (no preflight)
+      credentials:'include',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-  }catch(e){ console.warn('Sync failed (kept locally):', e); }
+    setSave('Saved locally & sent', 'ok');
+  }catch(e){
+    console.warn('Sync failed (kept locally):', e);
+    setSave('Saved locally; will sync when online', 'warn');
+  }
 }
 
-async function loadConsolidated(){
+/* ===== Connection check (JSONP) ===== */
+async function checkConnection(){
   try{
-    const res = await fetch(API_URL, { method:'GET', credentials:'include' });
-    const json = await res.json();
-    return json.rows || [];
-  }catch(e){ console.warn('Load consolidated failed:', e); return []; }
+    await jsonp(API_URL);        // if we can load JSONP, we’re “connected”
+    setConn('ok','Connected to Google Sheet');
+    return true;
+  }catch(e){
+    setConn('warn','Login needed or offline');
+    return false;
+  }
 }
 
 /* ===== Students list & trio nav ===== */
@@ -292,17 +344,15 @@ function renderList(){
     box.appendChild(row);
   });
 }
-
 function nextTrio(){ if((state.trioIndex+1)*3 < state.students.length){ state.trioIndex++; save(); renderTrio(); } }
 function prevTrio(){ if(state.trioIndex>0){ state.trioIndex--; save(); renderTrio(); } }
 
-/* ===== Rank select HTML ===== */
+/* Rank select HTML */
 function rankSelectHTML(stuId, value){
   const opts = ['<option value="">Select rank…</option>'].concat(RANKS.map(r=>`<option ${r===value?'selected':''}>${r}</option>`)).join('');
   return `<select class="rankSel" data-id="${stuId}">${opts}</select>`;
 }
-
-/* ===== Comment presets HTML ===== */
+/* Comment presets HTML */
 function chipsHTML(stuId){
   return `<div class="chipbar">` + COMMENT_PRESETS.map(t=>`<span class="chip" data-chip="${stuId}">${t}</span>`).join('') + `</div>`;
 }
@@ -314,7 +364,7 @@ function renderTrio(){
   const slice = state.students.slice(start,start+3);
   while(slice.length<3) slice.push(null);
 
-  slice.forEach((stu,i)=>{
+  slice.forEach((stu)=>{
     const pane = document.createElement('div'); pane.className='pane';
     if(!stu){
       pane.innerHTML = `<h3>Empty</h3><div class="tag">Add more students or go to Prev/Next Trio.</div>`;
@@ -374,9 +424,7 @@ function renderTrio(){
       const cls = cellClassFromScore(val); if(cls) el.classList.add(cls);
       const avg = calcAvg(s); const dec = decisionFromAvg(avg);
       const badge = document.getElementById(`badge-${id}`);
-      if(badge){ badge.textContent = avg!==null?`Avg ${avg} • ${dec}`:'No scores yet';
-        badge.className = 'pill ' + (dec==='PASS'?'ok':'warn');
-      }
+      if(badge){ badge.textContent = avg!==null?`Avg ${avg} • ${dec}`:'No scores yet'; badge.className = 'pill ' + (dec==='PASS'?'ok':'warn'); }
       save(); pushGrade(s);
     };
   });
@@ -415,12 +463,7 @@ async function buildPrintConsolidated(){
   const tb = $('#mx tbody'); tb.innerHTML='';
 
   const rows = await loadConsolidated();
-
-  // Optional: filter by session date (startsWith allows time stamps in sheet)
-  const filtered = rows.filter(r =>
-    (!state.session.date || String(r.session_date).startsWith(state.session.date))
-  );
-
+  const filtered = rows.filter(r => (!state.session.date || String(r.session_date).startsWith(state.session.date)));
   filtered.sort((a,b)=> String(a.student||'').localeCompare(String(b.student||'')));
 
   const td = (val)=>{
@@ -530,7 +573,7 @@ function init(){
   $('#prevTrioBtn').onclick = prevTrio;
 
   // Output buttons
-  $('#printBtn').onclick = async ()=>{ await buildPrintConsolidated(); window.print(); };
+  $('#printBtn').onclick = async ()=>{ const ok = await checkConnection(); if(!ok){ alert('Please sign into a Google account or connect to the internet first.'); return; } await buildPrintConsolidated(); window.print(); };
   $('#exportCsvBtn').onclick = exportCsv;
   $('#wipeBtn').onclick = ()=>{ if(confirm('Delete saved grades on this device?')){ localStorage.removeItem(KEY); location.reload(); } };
   $('#demoBtn').onclick = ()=>{
@@ -541,6 +584,10 @@ function init(){
   renderList();
   renderTrio();
   buildPrintLocal();
+
+  // Connection badge
+  checkConnection();
+  setInterval(checkConnection, 180000); // every 3 minutes
 }
 
 document.addEventListener('DOMContentLoaded', init);
